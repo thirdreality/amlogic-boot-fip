@@ -1,60 +1,50 @@
-# amlogic-boot-fip
+# amlogic-boot-fip (ThirdReality hubv3 branch)
 
-Firmware Image Pacakge (FIP) sources used to sign Amlogic u-boot binaries in LibreELEC images
+FIP blobs used to sign mainline u-boot (BL33) for ThirdReality Amlogic A113X
+(axg) boards in Armbian. This branch contains ThirdReality boards only; for
+other boards use the upstream `master` branch
+(https://github.com/LibreELEC/amlogic-boot-fip).
 
-## U-Boot/BL33 Firmware Packaging
+## Boards
+
+| Directory              | Board                       | DDR                                      |
+|------------------------|-----------------------------|------------------------------------------|
+| `thirdreality-hubv3`   | HubV3 (MB0.3)               | 1x DDR4, 16bit, 1 rank, 2GB @ 1200MHz    |
+| `thirdreality-hubv3l`  | HubV3L (LinuxBox-Lite MB0.5)| 2x DDR3, 16bit, 2 ranks, 1GB @ 912MHz    |
+
+The two directories differ only in `acs.bin` (DDR parameters). Do not swap
+them: the bl2 DDR auto-detect does not cover the HubV3L 2-rank layout.
+
+## Origin of the blobs
+
+Taken from the `fip/_tmp/` directory of an Amlogic OpenLinux buildroot SDK
+2025r1 build, configs `axg_hubv3_a64_k54_release` / `axg_hubv3l_a64_k54_release`
+(u-boot boards `axg_hubv3_v1` / `axg_hubv3l_v1`):
+
+| File        | Source                                   | Version                         |
+|-------------|------------------------------------------|---------------------------------|
+| `bl2.bin`   | SDK `bl2/bin/axg`                        | g226aefb1, 2025-08-26           |
+| `bl30.bin`  | SDK `bl30/bin/axg`                       | axg_v1.1.3545-2c4752ec29        |
+| `bl31.img`  | SDK `bl31/bl31_1.3/bin/axg`              | v1.3.2(release):9593a7478       |
+| `acs.bin`   | built from `axg_hubv3*_v1.h` DDR config  | per board                       |
+| `bl301.bin` | built from SDK board `scp_task`          | same for both boards            |
+| `bl21.bin`  | built from SDK board firmware            | same for both boards            |
+
+`aml_encrypt_axg`, `acs_tool.py`, `blx_fix.sh` and `Makefile` are unchanged
+from upstream (`aml_encrypt_axg` is identical to the SDK copy).
+
+No BL32 (OP-TEE) is packaged, same as the SDK output for these boards.
+No encrypted / efuse artifacts are included; these blobs are for
+non-secure-boot chips only.
+
+## Usage
 
 ```
-Usage: ./build-fip.sh: <board model> <bl33/u-boot.bin path> [output directory] [temporary directory]
+./build-fip.sh thirdreality-hubv3 /path/to/u-boot/u-boot.bin my-output-dir
 ```
 
-Pass the board name and the bl33/U-boot payload to generate a bootable binary.
+Output: `u-boot.bin`, `u-boot.bin.sd.bin`, `u-boot.bin.usb.bl2`,
+`u-boot.bin.usb.tpl`.
 
-Example:
-
-```
-$ mkdir my-output-dir
-$ ./build-fip.sh lepotato /path/to/u-boot/u-boot.bin my-output-dir
-make: Entering directory 'lepotato'
-python3 acs_tool.py bl2.bin /tmp/tmp.xq7XhFy6rW/bl2_acs.bin acs.bin 0
-ACS tool process done.
-./blx_fix.sh /tmp/tmp.xq7XhFy6rW/bl2_acs.bin /tmp/tmp.xq7XhFy6rW/zero_tmp /tmp/tmp.xq7XhFy6rW/bl2_zero.bin bl21.bin /tmp/tmp.xq7XhFy6rW/bl21_zero.bin /tmp/tmp.xq7XhFy6rW/bl2_new.bin bl2
-2916+0 records in
-2916+0 records out
-2916 bytes (2,9 kB, 2,8 KiB) copied, 0,00332667 s, 877 kB/s
-5992+0 records in
-5992+0 records out
-5992 bytes (6,0 kB, 5,9 KiB) copied, 0,00695574 s, 861 kB/s
-./aml_encrypt_gxl --bl2sig --input /tmp/tmp.xq7XhFy6rW/bl2_new.bin --output /tmp/tmp.xq7XhFy6rW/bl2.n.bin.sig
-./blx_fix.sh bl30.bin /tmp/tmp.xq7XhFy6rW/zero_tmp /tmp/tmp.xq7XhFy6rW/bl30_zero.bin bl301.bin /tmp/tmp.xq7XhFy6rW/bl301_zero.bin /tmp/tmp.xq7XhFy6rW/bl30_new.bin bl30
-2076+0 records in
-2076+0 records out
-2076 bytes (2,1 kB, 2,0 KiB) copied, 0,00238937 s, 869 kB/s
-3176+0 records in
-3176+0 records out
-3176 bytes (3,2 kB, 3,1 KiB) copied, 0,00360341 s, 881 kB/s
-./aml_encrypt_gxl --bl3enc --input /tmp/tmp.xq7XhFy6rW/bl30_new.bin --output /tmp/tmp.xq7XhFy6rW/bl30_new.bin.enc
-./aml_encrypt_gxl --bl3enc --input bl31.img --output /tmp/tmp.xq7XhFy6rW/bl31.img.enc
-./aml_encrypt_gxl --bl3enc --input /path/to/u-boot/u-boot.bin --output /tmp/tmp.xq7XhFy6rW/bl33.bin.enc
-./aml_encrypt_gxl --bootmk --output /path/to/my-output-dir/u-boot.bin --level v3 \
-               --bl2 /tmp/tmp.xq7XhFy6rW/bl2.n.bin.sig --bl30 /tmp/tmp.xq7XhFy6rW/bl30_new.bin.enc \
-	       --bl31 /tmp/tmp.xq7XhFy6rW/bl31.img.enc --bl33 /tmp/tmp.xq7XhFy6rW/bl33.bin.enc
-make: Leaving directory 'lepotato'
-$ ls my-output-dir
-u-boot.bin  u-boot.bin.sd.bin  u-boot.bin.usb.bl2  u-boot.bin.usb.tpl
-```
-
-System Requirements:
- - x86-64 Linux system
- - Python 3 (for GXBB, GXL & GXM boards only)
- - sh
- - make
- - readlink
- - mktemp
- - cat
- - dd
-
-Open-source tools exist to replace the binary-only Amlogic tools:
- - https://github.com/afaerber/meson-tools (GXBB, GXL & GXM only)
- - https://github.com/repk/gxlimg (GXBB, GXL, GXM & AXG only)
- - https://github.com/angerman/meson64-tools (developed for G12B, should work on G12A & SM1)
+System requirements: x86-64 Linux (or qemu-x86_64), python3, sh, make,
+readlink, mktemp, cat, dd.

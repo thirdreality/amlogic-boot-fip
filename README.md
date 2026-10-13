@@ -1,5 +1,7 @@
 # amlogic-boot-tools
 
+English | [简体中文](README.zh-CN.md)
+
 Boot tooling for ThirdReality Amlogic A113X (axg) boards built with Armbian:
 
 - `fip/`  — FIP blobs used to sign mainline u-boot (BL33) into a bootable
@@ -24,8 +26,12 @@ HubV3L 2-rank layout.
 
 ### Usage
 
+Run from inside `fip/` (the script looks up the board directory relative to
+the current directory):
+
 ```
-fip/build-fip.sh hubv3 /path/to/u-boot/u-boot.bin my-output-dir
+cd fip
+./build-fip.sh hubv3 /path/to/u-boot/u-boot.bin my-output-dir
 ```
 
 Output: `u-boot.bin`, `u-boot.bin.sd.bin`, `u-boot.bin.usb.bl2`,
